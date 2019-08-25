@@ -2,10 +2,12 @@ package main
 
 import (
 	"database/sql"
-	// "log"
+	"log"
+	//"encoding/json"
 	// "net"
 	"net/http"
-	// "os"
+	//"fmt"
+	//"os"
 	// "os/exec"
 	// "text/template"
 	"time"
@@ -22,14 +24,13 @@ import (
 )
 
 // DB table mapping
-type UserModel struct {
-	ID        int
-	Name      string
-	Email     string
-	Salt      string
-	Passhash  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+type User struct {
+	ID        int  `json:"id,omitempty"`
+	Name      string  `json:"name,omitempty"`
+	Email     string  `json:"email,omitempty"`
+	Passhash  string  `json:"passhash,omitempty"`
+	CreatedAt time.Time  `json:"created_at,omitempty"`
+	UpdatedAt time.Time  `json:"updated_at,omitempty"`
 }
 
 // DB table mapping
@@ -43,7 +44,7 @@ type Tweet struct {
 
 // template content
 type IndexContent struct {
-	User      *UserModel
+	User      *User
 	Following int
 	Followers int
 	Tweets    []*Tweet
@@ -56,8 +57,8 @@ type LoginContent struct {
 
 // template content
 type UserContent struct {
-	Myself     *UserModel
-	User       *UserModel
+	Myself     *User
+	User       *User
 	Tweets     []*Tweet
 	Followable bool
 }
@@ -69,7 +70,7 @@ type FollowingContent struct {
 
 // template content
 type FollowersContent struct {
-	UserList []*UserModel
+	UserList []*User
 }
 
 // for FollowingContent table mapping struct
@@ -85,15 +86,17 @@ var db *sql.DB
 func main() {
 	// dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4",
 	// 	os.Getenv("DB_USER"), os.Getenv("DB_PASS"),
-	// 	os.Getenv("DB_HOST"), os.Getenv("DB_PORT"),
+	// 	"localhost", os.Getenv("DB_PORT"),
 	// 	os.Getenv("DB_DATABASE"),
 	// )
 
-	// var err error
-	// db, err = sql.Open("mysql", dsn)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	var err error
+	//db, err = sql.Open("mysql", dsn)
+	//db, err := sql.Open("mysql", "isucon:isucon@/isucon?parseTime=true&charset=utf8mb4")
+	db, err := sql.Open("mysql", "isucon:isucon@unix(/tmp/mysql.sock)/isucon?parseTime=true&charset=utf8mb4")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	e := echo.New()
 	// funcs := template.FuncMap{
@@ -111,7 +114,106 @@ func main() {
 		e.GET("/hello", func(c echo.Context) error {
 			return c.String(http.StatusOK, "Hello World")
 		})
+
+		e.GET("/users", func(c echo.Context) error {
+			tx, err := db.Begin()
+			if err != nil {
+				return err
+			}
+			defer tx.Commit()
+
+			var user User
+			if err := tx.QueryRow("SELECT * FROM user").Scan(&user.ID, &user.Name, &user.Passhash, &user.CreatedAt, &user.UpdatedAt); err != sql.ErrNoRows {
+				//tx.Rollback()
+				if err == nil {
+					//return resError(c, "duplicated", 409)
+					return err
+				}
+				return err
+			}
+
+			return c.JSON(200, echo.Map{
+				"id":       user.ID,
+				"name": user.Name,
+			})
+		})
+
+		e.GET("/users/:id", func(c echo.Context) error {
+			tx, err := db.Begin()
+			if err != nil {
+				return err
+			}
+			defer tx.Commit()
+
+			id := c.Param("id")
+			var user User
+			if err := tx.QueryRow("SELECT * FROM user WHERE id = ?", id).Scan(&user.ID, &user.Name, &user.Passhash, &user.CreatedAt, &user.UpdatedAt); err != sql.ErrNoRows {
+				//tx.Rollback()
+				if err == nil {
+					//return resError(c, "duplicated", 409)
+					return err
+				}
+				return err
+			}
+
+			return c.JSON(200, echo.Map{
+				"id":       user.ID,
+				"name": user.Name,
+			})
+		})
+
+		e.POST("/users/:id/tweet", func(c echo.Context) error {
+			var params struct {
+				Content  string `json:"content"`
+			}
+			c.Bind(&params)
+
+			// require login
+			// user, err := getCurrentUser(w, r)
+			// if err != nil {
+			// 	http.Redirect(w, r, "/login", 302)
+			// 	return
+			// }
+
+			id := c.Param("id")
+
+			tx, err := db.Begin()
+			if err != nil {
+				return err
+			}
+
+			res, err := db.Exec("INSERT INTO tweet (user_id, content) VALUES (?,?)", id, params.Content)
+			if err != nil {
+				tx.Rollback()
+				return resError(c, "", 0)
+			}
+			userID, err := res.LastInsertId()
+			if err != nil {
+				tx.Rollback()
+				return resError(c, "", 0)
+			}
+			if err := tx.Commit(); err != nil {
+				return err
+			}
 	
+			return c.JSON(201, echo.Map{
+				"id":       userID,
+				"content": params.Content,
+			})
+
+			//http.Redirect(w, r, "/", 302)
+	})
+
 		// サーバー起動
-				e.Start(":8080")
+		e.Start(":8080")
+	}
+
+	func resError(c echo.Context, e string, status int) error {
+		if e == "" {
+			e = "unknown"
+		}
+		if status < 100 {
+			status = 500
+		}
+		return c.JSON(status, map[string]string{"error": e})
 	}

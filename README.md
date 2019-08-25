@@ -11,3 +11,6 @@ go get github.com/labstack/echo
 
 https://github.com/takashabe/go-isucon-exercise/blob/master/webapp/go/app.go
 https://github.com/isucon/isucon8-qualify/blob/master/webapp/go/src/torb/app.go
+
+
+mysql -u root < schema.sql
