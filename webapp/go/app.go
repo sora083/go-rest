@@ -204,16 +204,16 @@ func main() {
 			//http.Redirect(w, r, "/", 302)
 	})
 
-		// サーバー起動
-		e.Start(":8080")
-	}
+	// サーバー起動
+	e.Start(":8080")
+}
 
 	func resError(c echo.Context, e string, status int) error {
-		if e == "" {
-			e = "unknown"
-		}
-		if status < 100 {
-			status = 500
-		}
-		return c.JSON(status, map[string]string{"error": e})
+	if e == "" {
+		e = "unknown"
 	}
+	if status < 100 {
+		status = 500
+	}
+	return c.JSON(status, map[string]string{"error": e})
+}
