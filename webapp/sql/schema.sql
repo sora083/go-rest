@@ -1,8 +1,10 @@
-CREATE USER 'isucon'@'%' IDENTIFIED BY '';
-GRANT ALL PRIVILEGES ON *.* TO 'isucon'@'%';
+CREATE USER 'app'@'%' IDENTIFIED BY 'app';
+CREATE USER 'app'@'localhost' IDENTIFIED BY 'app';
+GRANT ALL PRIVILEGES ON *.* TO 'app'@'%';
+GRANT ALL PRIVILEGES ON *.* TO 'app'@'localhost';
 
-CREATE DATABASE isucon DEFAULT CHARACTER SET = utf8 COLLATE utf8_general_ci;
-USE isucon;
+CREATE DATABASE app DEFAULT CHARACTER SET = utf8 COLLATE utf8_general_ci;
+USE app;
 
 CREATE TABLE IF NOT EXISTS user (
   id INT NOT NULL,
